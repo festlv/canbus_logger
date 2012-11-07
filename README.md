@@ -22,6 +22,7 @@ GUI requirements
 
 Hardware connections
 ======================
+```
   Arduino pin   MCP2515 pin (DIP18)
   2				reset, 17
 
@@ -30,7 +31,7 @@ Hardware connections
   11 			si, 14
   12 			so, 15
   13			sck, 13
-
+```
 
 
 
