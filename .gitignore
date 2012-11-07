@@ -1,0 +1,5 @@
+*.pyc
+canbus_logger_mcu/*.elf
+canbus_logger_mcu/*.hex
+canbus_logger_mcu/*.dblite
+canbus_logger_mcu/build/
