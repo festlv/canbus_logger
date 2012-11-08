@@ -88,7 +88,7 @@ class MainWindow(wx.Frame):
             if serial_port and bitrate:
                 try:
                     self._queue = multiprocessing.Queue()
-                    self._process = process.SerialProcess(self, serial_port, bitrate, self._queue)
+                    self._process = process.SerialProcess(serial_port, bitrate, self._queue)
                     self.connect_button.SetLabel("Disconnect")
                 except serial_interface.SerialException, e:
                     wx.MessageBox("Cannot open serial port! "+e.message, "Error", wx.OK | wx.ICON_ERROR)
