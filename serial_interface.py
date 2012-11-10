@@ -46,7 +46,7 @@ class SerialInterface(object):
 		
 		self.serial = serial.Serial(
 			port=str(serial_port),
-			baudrate=115200,
+			baudrate=250000,
 			timeout=1
 		)
 		try:
@@ -54,28 +54,26 @@ class SerialInterface(object):
 			time.sleep(0.2)
 			self.serial.setDTR(False)
 			time.sleep(2)
-			self.serial.write(chr(self.supported_can_bitrates.index(int(can_bitrate))))	
-			print "Written to serial: %d" % self.supported_can_bitrates.index(int(can_bitrate))
-			print self.serial
+			self.serial.write(chr(self.supported_can_bitrates.index(int(can_bitrate))))
 		except ValueError:
 			raise SerialException("CAN bitrate not supported!")
 
 	def read_message(self):
 		line = self.serial.readline()
-		print "Reading line"
-		if len(line)>0:
-			print line
-		if len(line)>0 and line[0]=='~' and line[-1]=='.':
+		if len(line)>0 and line[0]=='~' and line[-2]=='.':
 			#we have full line, decode it
-			data = ''
-			for i in range(1,9):
-				data += hex(ord(line[i]))[2:]
-			data = data.upper()
-			identifier = ''
-			for i in range(9,13):
-				identifier+=hex(ord(line[i]))[2:]
-			identifier = identifier.upper()
-			return CANMessage(identifier, data)
+			try:
+				data = ''
+				for i in range(1,9):
+					data += hex(ord(line[i]))[2:]
+				data = data.upper()
+				identifier = ''
+				for i in range(9,13):
+					identifier+=hex(ord(line[i]))[2:]
+				identifier = identifier.upper()
+				return CANMessage(identifier, data)
+			except IndexError:
+				print "Index error on line: %s" % line
 
 		return None
 

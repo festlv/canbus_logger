@@ -18,7 +18,7 @@ const int supported_bit_rates[8] = {10, 20, 50, 100, 125, 250, 500, 1000};
 unsigned long next_delay = 0;
 
 
-#define LOOPBACK_MODE
+//#define LOOPBACK_MODE
 
 
 /* 
@@ -26,7 +26,7 @@ unsigned long next_delay = 0;
 */
 void setup()  
 {
-	Serial.begin(115200);
+	Serial.begin(250000);
 
 	int baudConfig = 125;
 	byte incoming = 0;
@@ -37,10 +37,10 @@ void setup()
 			if (incoming >=0 && incoming<8) {
 				baudConfig = supported_bit_rates[incoming];
 				Serial.write("Baud rate is set: ");
-				Serial.print(baudConfig);
+				Serial.println(baudConfig);
 				break;
 			} else {
-				Serial.write("Unsupported baud rate!");
+				Serial.println("Unsupported baud rate!");
 			}
 		}
 	}
@@ -70,7 +70,7 @@ inline void send_data(byte *data_out, uint32_t id_out) {
     for (int i=3;i>=0;i--)
     	Serial.write(id[i]);
 
-	Serial.write(".");
+	Serial.write(".\n");
 }
 
 void loop() // run over and over
@@ -136,7 +136,7 @@ void loop() // run over and over
 	      	delay(10);    
 
 	      
-			next_delay = millis()+6000;
+			next_delay = millis()+100;
 		}
 	#endif
 }

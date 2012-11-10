@@ -5,11 +5,15 @@ import process
 import multiprocessing
 import Queue
 
-from ObjectListView import ObjectListView, ColumnDefn
+from ObjectListView import ObjectListView, ColumnDefn, BatchedUpdate
 
 
 class MainWindow(wx.Frame):
     _process = None
+    _paused = False
+    _paused_batch = []
+    _ignore = False
+    _ignored_messages = []
 
     def __init__(self, parent, title):
         wx.Frame.__init__(self, parent, title=title, size=(200,100))
@@ -33,6 +37,9 @@ class MainWindow(wx.Frame):
 
         self.connect_button = wx.Button(self, label="Connect")
         tools_sizer.Add(self.connect_button, flag=wx.EXPAND)
+
+        self.pause_button = wx.Button(self, label="Pause")
+        tools_sizer.Add(self.pause_button, flag=wx.EXPAND)
         
         self.save_button = wx.Button(self, label="Save")
         tools_sizer.Add(self.save_button, flag=wx.EXPAND)
@@ -41,8 +48,23 @@ class MainWindow(wx.Frame):
         self.main_sizer.Add(tools_sizer, 0)
 
 
-        self.message_list = ObjectListView(self, style=wx.LC_REPORT|wx.SUNKEN_BORDER)
+        self.filter_sizer = wx.BoxSizer(wx.HORIZONTAL)
+        self.filter_sizer.Add(wx.StaticText(self, label="Filter (ID or data):", pos=(10, 5)), flag=wx.EXPAND|wx.ALL, border=b)
+        self.filter_textbox = wx.TextCtrl(self)
+        self.filter_sizer.Add(self.filter_textbox, flag=wx.EXPAND)
+        self.main_sizer.Add(self.filter_sizer)
 
+        self.ignore_button = wx.Button(self, label="Start ignore")
+        self.filter_sizer.Add(self.ignore_button, flag=wx.EXPAND)
+        self.Bind(wx.EVT_BUTTON, self.on_ignore, self.ignore_button)
+
+        self.clear_ignore_button = wx.Button(self, label="Clear ignore list")
+        self.filter_sizer.Add(self.clear_ignore_button, flag=wx.EXPAND)
+        self.Bind(wx.EVT_BUTTON, self.on_clear_ignore, self.clear_ignore_button)
+
+        self.message_list = ObjectListView(self, style=wx.LC_REPORT|wx.SUNKEN_BORDER)
+        self.batched_message_list = BatchedUpdate(self.message_list, 1)
+        self.message_list.SetFilter(self.filter)
         self.main_sizer.Add(self.message_list, 1, flag=wx.EXPAND|wx.ALL, border=5)
 
 
@@ -52,11 +74,13 @@ class MainWindow(wx.Frame):
         
         self.update_port_selection()
         self.init_message_list()
-
+        self.message_list.SortBy(0, False)
         self.Bind (wx.EVT_IDLE, self.on_idle)
         self.Bind(wx.EVT_CLOSE, self.on_close)
+        self.Bind(wx.EVT_TEXT, self.on_filter_update, self.filter_textbox)
         self.Bind(wx.EVT_BUTTON, self.on_connect, self.connect_button)
         self.Bind(wx.EVT_BUTTON, self.on_save, self.save_button)
+        self.Bind(wx.EVT_BUTTON, self.on_pause, self.pause_button)
         self.Show()
 
     def init_message_list(self):
@@ -74,6 +98,27 @@ class MainWindow(wx.Frame):
         """
     	self.serial_combobox.Clear()
     	self.serial_combobox.AppendItems(self.serial_interface.scan())
+
+
+    def on_ignore(self, event):
+        if self._ignore:
+            self._ignore = False
+            self.ignore_button.SetLabel("Start ignore")
+        else:
+            self._ignore = True
+            self.ignore_button.SetLabel("Stop ignore")
+
+    def on_clear_ignore(self, event):
+        self._ignored_messages = []
+
+
+    def on_filter_update(self, event):
+        self.batched_message_list.RepopulateList()
+
+    def filter(self, object_list):
+        val = self.filter_textbox.GetValue()
+        return [o for o in object_list if (o.id+o.data not in self._ignored_messages) and o.id.startswith(val) or o.data.startswith(val)]
+
 
     def on_connect(self, event):
         """Executed on click of Connect button. 
@@ -99,13 +144,28 @@ class MainWindow(wx.Frame):
             self.connect_button.SetLabel("Connect")
             self._process = None
 
+    def on_pause(self, event):
+        if self._paused:
+            self._paused = False
+            self.batched_message_list.AddObjects(self._paused_batch)
+            self._paused_batch = []
+            self.pause_button.SetLabel("Pause")
+        else:
+            self.pause_button.SetLabel("Play")
+            self._paused = True
 
     def on_idle(self, event):
         if hasattr(self, '_queue'):
             try:
                 message = self._queue.get(False)
                 if hasattr(message, 'timestamp'):
-                    self.message_list.AddObject(message)
+                    if self._ignore:
+                        self._ignored_messages.append(message.id+message.data)
+
+                    if self._paused:
+                        self._paused_batch.append(message)
+                    else:
+                        self.batched_message_list.AddObject(message)
 
                 elif message=="stop":
                     self._queue.put("stop")
