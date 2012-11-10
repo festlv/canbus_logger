@@ -46,25 +46,27 @@ class SerialInterface(object):
 		
 		self.serial = serial.Serial(
 			port=str(serial_port),
-			baudrate=112500,
+			baudrate=115200,
 			timeout=1
 		)
 		try:
 			self.serial.setDTR(True)
 			time.sleep(0.2)
 			self.serial.setDTR(False)
-			time.sleep(0.2)
-			self.serial.write(chr(self.supported_can_bitrates.index(int(can_bitrate))))
+			time.sleep(2)
+			self.serial.write(chr(self.supported_can_bitrates.index(int(can_bitrate))))	
+			print "Written to serial: %d" % self.supported_can_bitrates.index(int(can_bitrate))
+			print self.serial
 		except ValueError:
 			raise SerialException("CAN bitrate not supported!")
 
 	def read_message(self):
-		line = self.serial.readline(32)
+		line = self.serial.readline()
+		print "Reading line"
 		if len(line)>0:
 			print line
 		if len(line)>0 and line[0]=='~' and line[-1]=='.':
 			#we have full line, decode it
-
 			data = ''
 			for i in range(1,9):
 				data += hex(ord(line[i]))[2:]
