@@ -26,7 +26,7 @@ unsigned long next_delay = 0;
 */
 void setup()  
 {
-	Serial.begin(500000);
+	Serial.begin(250000);
 
 	int baudConfig = 125;
 	byte incoming = 0;
@@ -136,7 +136,7 @@ void loop() // run over and over
 	      	delay(10);    
 
 	      
-			next_delay = millis()+6000;
+			next_delay = millis()+100;
 		}
 	#endif
 }
