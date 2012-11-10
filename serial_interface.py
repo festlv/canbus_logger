@@ -46,14 +46,14 @@ class SerialInterface(object):
 		
 		self.serial = serial.Serial(
 			port=str(serial_port),
-			baudrate=112500,
+			baudrate=500000,
 			timeout=1
 		)
 		try:
 			self.serial.setDTR(True)
 			time.sleep(0.2)
 			self.serial.setDTR(False)
-			time.sleep(0.2)
+			time.sleep(1)
 			self.serial.write(chr(self.supported_can_bitrates.index(int(can_bitrate))))
 		except ValueError:
 			raise SerialException("CAN bitrate not supported!")
@@ -62,7 +62,7 @@ class SerialInterface(object):
 		line = self.serial.readline(32)
 		if len(line)>0:
 			print line
-		if len(line)>0 and line[0]=='~' and line[-1]=='.':
+		if len(line)>0 and line[0]=='~' and line[-2]=='.':
 			#we have full line, decode it
 
 			data = ''
