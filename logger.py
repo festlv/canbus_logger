@@ -154,15 +154,17 @@ class MainWindow(wx.Frame):
         res = []
         for m in object_list:
             mv = m.id + m.data
+            if mv in self._ignored_messages:
+                continue
             matches_filter = len(val)==0 or (m.id.startswith(val) or m.data.startswith(val))
 
             matches_gte = (mv not in self._message_occurences) or self._message_occurences[mv]>=gte
             matches_lte = (mv not in self._message_occurences) or lte>0 or self._message_occurences[mv]<=lte
             matches_occurences = matches_gte and matches_lte
 
-            if (mv not in self._ignored_messages) and matches_filter and matches_occurences:
+            if matches_filter and matches_occurences:
                 res.append(m)
-        
+
         return res
 
     def on_connect(self, event):
