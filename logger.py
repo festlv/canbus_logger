@@ -65,7 +65,7 @@ class MainWindow(wx.Frame):
         
         self.update_port_selection()
         self.init_message_list()
-
+        self.message_list.SortBy(0, False)
         self.Bind (wx.EVT_IDLE, self.on_idle)
         self.Bind(wx.EVT_CLOSE, self.on_close)
         self.Bind(wx.EVT_TEXT, self.on_filter_update, self.filter_textbox)
