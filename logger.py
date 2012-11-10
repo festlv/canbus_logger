@@ -14,6 +14,7 @@ class MainWindow(wx.Frame):
     _paused_batch = []
     _ignore = False
     _ignored_messages = []
+    _message_occurences = {}
 
     def __init__(self, parent, title):
         wx.Frame.__init__(self, parent, title=title, size=(200,100))
@@ -22,6 +23,29 @@ class MainWindow(wx.Frame):
         self.CreateStatusBar() # A Statusbar in the bottom of the window
         
 
+        self.main_sizer = wx.BoxSizer(wx.VERTICAL)
+        self.create_tools()
+        self.create_filters()
+
+        self.message_list = ObjectListView(self, style=wx.LC_REPORT|wx.SUNKEN_BORDER)
+        self.batched_message_list = BatchedUpdate(self.message_list, 1)
+        self.message_list.SetFilter(self.filter)
+        self.main_sizer.Add(self.message_list, 1, flag=wx.EXPAND|wx.ALL, border=5)
+
+
+        self.SetSizerAndFit(self.main_sizer)
+        self.SetAutoLayout(True)
+        self.Layout()
+        
+        
+        self.init_message_list()
+        self.message_list.SortBy(0, False)
+        self.Bind (wx.EVT_IDLE, self.on_idle)
+        self.Bind(wx.EVT_CLOSE, self.on_close)
+
+        self.Show()
+
+    def create_tools(self):
         tools_sizer = wx.BoxSizer(wx.HORIZONTAL)
         b=5
         tools_sizer.Add(wx.StaticText(self, label="Serial port:", pos=(10, 5)), flag=wx.EXPAND|wx.ALL, border=b)
@@ -43,11 +67,16 @@ class MainWindow(wx.Frame):
         
         self.save_button = wx.Button(self, label="Save")
         tools_sizer.Add(self.save_button, flag=wx.EXPAND)
-
-        self.main_sizer = wx.BoxSizer(wx.VERTICAL)
         self.main_sizer.Add(tools_sizer, 0)
 
+        self.update_port_selection()
 
+        self.Bind(wx.EVT_BUTTON, self.on_connect, self.connect_button)
+        self.Bind(wx.EVT_BUTTON, self.on_save, self.save_button)
+        self.Bind(wx.EVT_BUTTON, self.on_pause, self.pause_button)
+
+    def create_filters(self):
+        b = 5
         self.filter_sizer = wx.BoxSizer(wx.HORIZONTAL)
         self.filter_sizer.Add(wx.StaticText(self, label="Filter (ID or data):", pos=(10, 5)), flag=wx.EXPAND|wx.ALL, border=b)
         self.filter_textbox = wx.TextCtrl(self)
@@ -62,26 +91,21 @@ class MainWindow(wx.Frame):
         self.filter_sizer.Add(self.clear_ignore_button, flag=wx.EXPAND)
         self.Bind(wx.EVT_BUTTON, self.on_clear_ignore, self.clear_ignore_button)
 
-        self.message_list = ObjectListView(self, style=wx.LC_REPORT|wx.SUNKEN_BORDER)
-        self.batched_message_list = BatchedUpdate(self.message_list, 1)
-        self.message_list.SetFilter(self.filter)
-        self.main_sizer.Add(self.message_list, 1, flag=wx.EXPAND|wx.ALL, border=5)
-
-
-        self.SetSizerAndFit(self.main_sizer)
-        self.SetAutoLayout(True)
-        self.Layout()
-        
-        self.update_port_selection()
-        self.init_message_list()
-        self.message_list.SortBy(0, False)
-        self.Bind (wx.EVT_IDLE, self.on_idle)
-        self.Bind(wx.EVT_CLOSE, self.on_close)
         self.Bind(wx.EVT_TEXT, self.on_filter_update, self.filter_textbox)
-        self.Bind(wx.EVT_BUTTON, self.on_connect, self.connect_button)
-        self.Bind(wx.EVT_BUTTON, self.on_save, self.save_button)
-        self.Bind(wx.EVT_BUTTON, self.on_pause, self.pause_button)
-        self.Show()
+
+        self.filter_sizer.Add(wx.StaticText(self, label="Number of occurences:", pos=(10, 5)), flag=wx.EXPAND|wx.ALL, border=b)
+        self.filter_sizer.Add(wx.StaticText(self, label=">=", pos=(10, 5)), flag=wx.EXPAND|wx.ALL, border=b)
+        self.gte_occurences_text = wx.TextCtrl(self)
+        self.filter_sizer.Add(self.gte_occurences_text, flag=wx.EXPAND)
+        self.Bind(wx.EVT_TEXT, self.on_filter_update, self.gte_occurences_text)
+
+        self.filter_sizer.Add(wx.StaticText(self, label="<=", pos=(10, 5)), flag=wx.EXPAND|wx.ALL, border=b)
+        
+        self.lte_occurences_text = wx.TextCtrl(self)
+        self.filter_sizer.Add(self.lte_occurences_text, flag=wx.EXPAND)
+        self.Bind(wx.EVT_TEXT, self.on_filter_update, self.lte_occurences_text)
+
+
 
     def init_message_list(self):
         self.message_list.SetColumns([
@@ -117,8 +141,29 @@ class MainWindow(wx.Frame):
 
     def filter(self, object_list):
         val = self.filter_textbox.GetValue()
-        return [o for o in object_list if (o.id+o.data not in self._ignored_messages) and o.id.startswith(val) or o.data.startswith(val)]
+        try:
+            gte = int(self.gte_occurences_text.GetValue())
+        except ValueError:
+            gte = 0
 
+        try:
+            lte = int(self.lte_occurences_text.GetValue())
+        except ValueError:
+            lte = 0
+
+        res = []
+        for m in object_list:
+            mv = m.id + m.data
+            matches_filter = len(val)==0 or (m.id.startswith(val) or m.data.startswith(val))
+
+            matches_gte = (mv not in self._message_occurences) or self._message_occurences[mv]>=gte
+            matches_lte = (mv not in self._message_occurences) or lte>0 or self._message_occurences[mv]<=lte
+            matches_occurences = matches_gte and matches_lte
+
+            if (mv not in self._ignored_messages) and matches_filter and matches_occurences:
+                res.append(m)
+        
+        return res
 
     def on_connect(self, event):
         """Executed on click of Connect button. 
@@ -159,8 +204,16 @@ class MainWindow(wx.Frame):
             try:
                 message = self._queue.get(False)
                 if hasattr(message, 'timestamp'):
+                    message_val = message.id + message.data
+
                     if self._ignore:
-                        self._ignored_messages.append(message.id+message.data)
+                        self._ignored_messages.append(message_val)
+
+                    if message_val in self._message_occurences:
+                        self._message_occurences[message_val]+=1
+                    else:
+                        self._message_occurences[message_val]=1
+
 
                     if self._paused:
                         self._paused_batch.append(message)
