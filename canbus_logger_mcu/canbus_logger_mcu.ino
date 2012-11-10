@@ -18,7 +18,7 @@ const int supported_bit_rates[8] = {10, 20, 50, 100, 125, 250, 500, 1000};
 unsigned long next_delay = 0;
 
 
-//#define LOOPBACK_MODE
+#define LOOPBACK_MODE
 
 
 /* 
@@ -36,6 +36,8 @@ void setup()
 			incoming = Serial.read();
 			if (incoming >=0 && incoming<8) {
 				baudConfig = supported_bit_rates[incoming];
+				Serial.write("Baud rate is set: ");
+				Serial.print(baudConfig);
 				break;
 			} else {
 				Serial.write("Unsupported baud rate!");
