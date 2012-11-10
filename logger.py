@@ -12,6 +12,8 @@ class MainWindow(wx.Frame):
     _process = None
     _paused = False
     _paused_batch = []
+    _ignore = False
+    _ignored_messages = []
 
     def __init__(self, parent, title):
         wx.Frame.__init__(self, parent, title=title, size=(200,100))
@@ -47,11 +49,18 @@ class MainWindow(wx.Frame):
 
 
         self.filter_sizer = wx.BoxSizer(wx.HORIZONTAL)
-        self.filter_sizer.Add(wx.StaticText(self, label="Filter:", pos=(10, 5)), flag=wx.EXPAND|wx.ALL, border=b)
+        self.filter_sizer.Add(wx.StaticText(self, label="Filter (ID or data):", pos=(10, 5)), flag=wx.EXPAND|wx.ALL, border=b)
         self.filter_textbox = wx.TextCtrl(self)
         self.filter_sizer.Add(self.filter_textbox, flag=wx.EXPAND)
         self.main_sizer.Add(self.filter_sizer)
 
+        self.ignore_button = wx.Button(self, label="Start ignore")
+        self.filter_sizer.Add(self.ignore_button, flag=wx.EXPAND)
+        self.Bind(wx.EVT_BUTTON, self.on_ignore, self.ignore_button)
+
+        self.clear_ignore_button = wx.Button(self, label="Clear ignore list")
+        self.filter_sizer.Add(self.clear_ignore_button, flag=wx.EXPAND)
+        self.Bind(wx.EVT_BUTTON, self.on_clear_ignore, self.clear_ignore_button)
 
         self.message_list = ObjectListView(self, style=wx.LC_REPORT|wx.SUNKEN_BORDER)
         self.batched_message_list = BatchedUpdate(self.message_list, 1)
@@ -90,12 +99,25 @@ class MainWindow(wx.Frame):
     	self.serial_combobox.Clear()
     	self.serial_combobox.AppendItems(self.serial_interface.scan())
 
+
+    def on_ignore(self, event):
+        if self._ignore:
+            self._ignore = False
+            self.ignore_button.SetLabel("Start ignore")
+        else:
+            self._ignore = True
+            self.ignore_button.SetLabel("Stop ignore")
+
+    def on_clear_ignore(self, event):
+        self._ignored_messages = []
+
+
     def on_filter_update(self, event):
         self.batched_message_list.RepopulateList()
 
     def filter(self, object_list):
         val = self.filter_textbox.GetValue()
-        return [o for o in object_list if o.id.startswith(val) or o.data.startswith(val)]
+        return [o for o in object_list if (o.id+o.data not in self._ignored_messages) and o.id.startswith(val) or o.data.startswith(val)]
 
 
     def on_connect(self, event):
@@ -137,6 +159,9 @@ class MainWindow(wx.Frame):
             try:
                 message = self._queue.get(False)
                 if hasattr(message, 'timestamp'):
+                    if self._ignore:
+                        self._ignored_messages.append(message.id+message.data)
+
                     if self._paused:
                         self._paused_batch.append(message)
                     else:
