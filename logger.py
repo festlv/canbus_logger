@@ -39,7 +39,6 @@ class MainWindow(wx.Frame):
         
         
         self.init_message_list()
-        self.message_list.SortBy(0, False)
         self.Bind (wx.EVT_IDLE, self.on_idle)
         self.Bind(wx.EVT_CLOSE, self.on_close)
 
@@ -144,24 +143,28 @@ class MainWindow(wx.Frame):
         try:
             gte = int(self.gte_occurences_text.GetValue())
         except ValueError:
-            gte = 0
-
+            gte = -1
         try:
             lte = int(self.lte_occurences_text.GetValue())
         except ValueError:
-            lte = 0
+            lte = -1
 
         res = []
         for m in object_list:
             mv = m.id + m.data
             if mv in self._ignored_messages:
                 continue
-            matches_filter = len(val)==0 or (m.id.startswith(val) or m.data.startswith(val))
 
-            matches_gte = (mv not in self._message_occurences) or self._message_occurences[mv]>=gte
-            matches_lte = (mv not in self._message_occurences) or lte>0 or self._message_occurences[mv]<=lte
-            matches_occurences = matches_gte and matches_lte
-
+            if len(val)==0:
+                matches_filter = True
+            else:
+                matches_filter = (m.id.startswith(val) or m.data.startswith(val))
+            if mv not in self._message_occurences:
+                matches_occurences = True
+            else:
+                matches_gte = gte==-1 or self._message_occurences[mv]>=gte
+                matches_lte = lte==-1 or self._message_occurences[mv]<=lte
+                matches_occurences = matches_gte and matches_lte
             if matches_filter and matches_occurences:
                 res.append(m)
 
